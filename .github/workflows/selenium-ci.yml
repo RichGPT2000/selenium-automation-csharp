@@ -1,47 +1,97 @@
 name: selenium-ci
+
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:
 
 jobs:
   selenium-tests:
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        mode: [headless, headed]
+        headed: [false]   # tedd true-ra, ha kell GUI (Windows), Linuxon xvfb-vel megy
+    runs-on: ${{ matrix.os }}
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_NOLOGO: 1
+
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '8.0.x' }
-      - name: Cache NuGet
-        uses: actions/cache@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
         with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
-          restore-keys: nuget-${{ runner.os }}-
-      - name: Restore
-        run: dotnet restore SeleniumAutomation.Tests/SeleniumAutomation.Tests.csproj
-      - name: Test
-        env:
-          HEADLESS: ${{ matrix.mode == 'headless' && '1' || '' }}
+          dotnet-version: '8.0.x'
+
+      # ------- Chrome for Testing + Chromedriver
+      - name: Install Chrome for Testing (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        shell: bash
         run: |
-          if ($env:HEADLESS -eq '1') {
-            echo "Running headless" 
-          } else {
-            echo "Running headed" 
-          }
-          dotnet test SeleniumAutomation.Tests/SeleniumAutomation.Tests.csproj --logger "trx;LogFileName=test_results.trx"
-      - name: Upload artifacts
+          set -eux
+          VER="139.0.7258.128"
+          BASE="https://storage.googleapis.com/chrome-for-testing-public/${VER}/linux64"
+          mkdir -p tools
+          curl -sSLo chrome-linux64.zip "$BASE/chrome-linux64.zip"
+          curl -sSLo chromedriver-linux64.zip "$BASE/chromedriver-linux64.zip"
+          unzip -q chrome-linux64.zip -d tools && rm chrome-linux64.zip
+          unzip -q chromedriver-linux64.zip -d tools && rm chromedriver-linux64.zip
+          echo "CHROME_BINARY=${{ github.workspace }}/tools/chrome-linux64/chrome" >> $GITHUB_ENV
+          echo "CHROMEDRIVER_DIR=${{ github.workspace }}/tools/chromedriver-linux64" >> $GITHUB_ENV
+          chmod +x "$CHROME_BINARY" "$CHROMEDRIVER_DIR/chromedriver"
+
+      - name: Install Chrome for Testing (Windows)
+        if: startsWith(matrix.os, 'windows')
+        shell: pwsh
+        run: |
+          $VER = "139.0.7258.128"
+          $BASE = "https://storage.googleapis.com/chrome-for-testing-public/$VER/win64"
+          New-Item -ItemType Directory -Force tools | Out-Null
+          Invoke-WebRequest "$BASE/chrome-win64.zip" -OutFile chrome-win64.zip
+          Invoke-WebRequest "$BASE/chromedriver-win64.zip" -OutFile chromedriver-win64.zip
+          Expand-Archive chrome-win64.zip -DestinationPath tools -Force
+          Expand-Archive chromedriver-win64.zip -DestinationPath tools -Force
+          Remove-Item chrome-win64.zip, chromedriver-win64.zip -Force
+          "CHROME_BINARY=$((Resolve-Path .\tools\chrome-win64\chrome.exe).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CHROMEDRIVER_DIR=$((Resolve-Path .\tools\chromedriver-win64).Path)"   | Out-File -FilePath $env:GITHUB_ENV -Append
+          # Opcionális: blokkoljuk a régi rendszerbeli chromedriver-t
+          $p="C:\Program Files\Google\Chrome\Application\chromedriver.exe"
+          if (Test-Path $p) { Rename-Item $p "chromedriver-old.exe" -Force }
+
+      # ------- Build & Test
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test (Linux headless)
+        if: startsWith(matrix.os, 'ubuntu')
+        shell: bash
+        run: |
+          set -eux
+          # xvfb a headed módhoz is jó, de headless-hez is stabilitást ad
+          xvfb-run --auto-servernum dotnet test SeleniumAutomation.Tests \
+            --no-build --logger "trx;LogFileName=test_results.trx" \
+            -- ResultsDirectory="$GITHUB_WORKSPACE/TestResults"
+
+      - name: Test (Windows)
+        if: startsWith(matrix.os, 'windows')
+        shell: pwsh
+        run: |
+          dotnet test .\SeleniumAutomation.Tests `
+            --no-build --logger "trx;LogFileName=test_results.trx" `
+            -- ResultsDirectory "$env:GITHUB_WORKSPACE\TestResults"
+
+      # ------- Artefaktok
+      - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: selenium-${{ matrix.os }}-${{ matrix.mode }}-artifacts
+          name: test-results-${{ matrix.os }}
           path: |
-            SeleniumAutomation.Tests/TestResults
-            **/test_results.trx
-          if-no-files-found: warn
+            TestResults/**/*.trx
+            SeleniumAutomation.Tests/bin/**/TestResults/**/*.png
+            SeleniumAutomation.Tests/bin/**/TestResults/**/*.html
