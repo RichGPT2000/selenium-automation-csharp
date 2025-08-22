@@ -1,0 +1,27 @@
+name: selenium-ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  selenium-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix: { os: [ubuntu-latest, windows-latest] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '8.0.x' }
+      - name: Restore
+        run: dotnet restore SeleniumAutomation.Tests/SeleniumAutomation.Tests.csproj
+      - name: Test
+        run: dotnet test SeleniumAutomation.Tests/SeleniumAutomation.Tests.csproj --logger "trx;LogFileName=test_results.trx"
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-${{ matrix.os }}-artifacts
+          path: |
+            SeleniumAutomation.Tests/TestResults
+            **/test_results.trx
+          if-no-files-found: warn
