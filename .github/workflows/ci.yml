@@ -40,7 +40,7 @@ jobs:
           CHROME_BIN="${GITHUB_WORKSPACE}/tools/chrome-linux64/chrome"
           DRIVER_DIR="${GITHUB_WORKSPACE}/tools/chromedriver-linux64"
           chmod +x "$CHROME_BIN" "$DRIVER_DIR/chromedriver"
-          echo "CHROME_BINARY=$CHROME_BIN"   >> "$GITHUB_ENV"
+          echo "CHROME_BINARY=$CHROME_BIN"     >> "$GITHUB_ENV"
           echo "CHROMEDRIVER_DIR=$DRIVER_DIR" >> "$GITHUB_ENV"
 
       # ---- WINDOWS ----
@@ -59,7 +59,7 @@ jobs:
           Remove-Item chrome-win64.zip, chromedriver-win64.zip -Force
           "CHROME_BINARY=$((Resolve-Path .	ools\chrome-win64\chrome.exe).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append
           "CHROMEDRIVER_DIR=$((Resolve-Path .	ools\chromedriver-win64).Path)"   | Out-File -FilePath $env:GITHUB_ENV -Append
-          $p="C:\Program Files\Google\Chrome\Application\chromedriver.exe"
+          $p = "C:\Program Files\Google\Chrome\Application\chromedriver.exe"
           if (Test-Path $p) { Rename-Item $p "chromedriver-old.exe" -Force }
 
       # ---- BUILD & TEST ----
@@ -99,7 +99,7 @@ jobs:
             SeleniumAutomation.Tests/bin/**/TestResults/**/*.png
             SeleniumAutomation.Tests/bin/**/TestResults/**/*.html
 
-      # ---- SUMMARY (filenevek + linkek) ----
+      # ---- SUMMARY (TRX/HTML listázás) ----
       - name: Summarize results
         if: always()
         shell: bash
@@ -123,7 +123,7 @@ jobs:
             echo "" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # ---- INLINE SCREENSHOTS ----
+      # ---- INLINE SCREENSHOTS (Linux) ----
       - name: Show screenshots in Job Summary (Linux)
         if: always() && startsWith(matrix.os, 'ubuntu')
         shell: bash
@@ -142,6 +142,7 @@ jobs:
             echo "_No screenshots found._" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # ---- INLINE SCREENSHOTS (Windows) ----
       - name: Show screenshots in Job Summary (Windows)
         if: always() && startsWith(matrix.os, 'windows')
         shell: pwsh
