@@ -1,26 +1,46 @@
 name: selenium-ci
 on:
   push:
+    branches: [ main ]
   pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   selenium-tests:
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix: { os: [ubuntu-latest, windows-latest] }
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        mode: [headless, headed]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: '8.0.x' }
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
       - name: Restore
         run: dotnet restore SeleniumAutomation.Tests/SeleniumAutomation.Tests.csproj
       - name: Test
-        run: dotnet test SeleniumAutomation.Tests/SeleniumAutomation.Tests.csproj --logger "trx;LogFileName=test_results.trx"
+        env:
+          HEADLESS: ${{ matrix.mode == 'headless' && '1' || '' }}
+        run: |
+          if ($env:HEADLESS -eq '1') {
+            echo "Running headless" 
+          } else {
+            echo "Running headed" 
+          }
+          dotnet test SeleniumAutomation.Tests/SeleniumAutomation.Tests.csproj --logger "trx;LogFileName=test_results.trx"
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: selenium-${{ matrix.os }}-artifacts
+          name: selenium-${{ matrix.os }}-${{ matrix.mode }}-artifacts
           path: |
             SeleniumAutomation.Tests/TestResults
             **/test_results.trx

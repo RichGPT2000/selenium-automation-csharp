@@ -1,5 +1,7 @@
 # SeleniumAutomation (C# / .NET 8)
 
+![CI](https://github.com/OWNER/REPO/actions/workflows/selenium-ci.yml/badge.svg) <!-- Replace OWNER/REPO after pushing -->
+
 Egyszerű Selenium példa: megnyitja a **DuckDuckGo** keresőt és rákeres a **"Selenium WebDriver"** kifejezésre, valamint tartalmaz xUnit teszteket.
 
 > Miért DuckDuckGo? A Google a Selenium-os (automatizált) kereséseket sokszor reCAPTCHA oldalra irányítja (“unusual traffic”), ezért a tesztek megbízhatósága érdekében DuckDuckGo-t használunk.
@@ -59,6 +61,8 @@ Futtatás:
 cd SeleniumAutomation.Tests
 dotnet test
 ```
+
+CI: A GitHub Actions workflow (`selenium-ci.yml`) párhuzamosan fut Ubuntu & Windows környezetben, valamint headless és headed módokban (matrix). Artefaktumként a TestResults mappa és a .trx fájlok kerülnek feltöltésre.
 
 ## Git ignore
 
