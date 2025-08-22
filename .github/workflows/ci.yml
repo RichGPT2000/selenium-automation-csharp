@@ -3,6 +3,11 @@ name: selenium-ci
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: selenium-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   selenium-tests:
@@ -11,10 +16,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: 1
       DOTNET_NOLOGO: 1
+      CHROME_VERSION: 139.0.7258.128
 
     steps:
       - uses: actions/checkout@v4
@@ -24,19 +29,32 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      # ---- CACHE (tools) ----
+      - name: Cache Chrome for Testing downloads
+        id: cache-tools
+        uses: actions/cache@v4
+        with:
+          path: tools
+          key: tools-${{ runner.os }}-${{ env.CHROME_VERSION }}
+          restore-keys: tools-${{ runner.os }}-
+
       # ---- LINUX ----
       - name: Install Chrome for Testing (Linux)
-        if: startsWith(matrix.os, 'ubuntu')
+        if: startsWith(matrix.os, 'ubuntu') && steps.cache-tools.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -euxo pipefail
-          VER="139.0.7258.128"
+          VER="$CHROME_VERSION"
           BASE="https://storage.googleapis.com/chrome-for-testing-public/${VER}/linux64"
           mkdir -p tools
           curl -sSLo chrome-linux64.zip "$BASE/chrome-linux64.zip"
           curl -sSLo chromedriver-linux64.zip "$BASE/chromedriver-linux64.zip"
           unzip -q chrome-linux64.zip -d tools && rm chrome-linux64.zip
           unzip -q chromedriver-linux64.zip -d tools && rm chromedriver-linux64.zip
+      - name: Configure Chrome env (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        shell: bash
+        run: |
           CHROME_BIN="${GITHUB_WORKSPACE}/tools/chrome-linux64/chrome"
           DRIVER_DIR="${GITHUB_WORKSPACE}/tools/chromedriver-linux64"
           chmod +x "$CHROME_BIN" "$DRIVER_DIR/chromedriver"
@@ -45,11 +63,11 @@ jobs:
 
       # ---- WINDOWS ----
       - name: Install Chrome for Testing (Windows)
-        if: startsWith(matrix.os, 'windows')
+        if: startsWith(matrix.os, 'windows') && steps.cache-tools.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $VER  = '139.0.7258.128'
+          $VER  = $env:CHROME_VERSION
           $BASE = "https://storage.googleapis.com/chrome-for-testing-public/$VER/win64"
           New-Item -ItemType Directory -Force tools | Out-Null
           Invoke-WebRequest "$BASE/chrome-win64.zip" -OutFile chrome-win64.zip
@@ -57,12 +75,22 @@ jobs:
           Expand-Archive chrome-win64.zip -DestinationPath tools -Force
           Expand-Archive chromedriver-win64.zip -DestinationPath tools -Force
           Remove-Item chrome-win64.zip, chromedriver-win64.zip -Force
+      - name: Configure Chrome env (Windows)
+        if: startsWith(matrix.os, 'windows')
+        shell: pwsh
+        run: |
           "CHROME_BINARY=$((Resolve-Path .\tools\chrome-win64\chrome.exe).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append
           "CHROMEDRIVER_DIR=$((Resolve-Path .\tools\chromedriver-win64).Path)"   | Out-File -FilePath $env:GITHUB_ENV -Append
           $p="C:\Program Files\Google\Chrome\Application\chromedriver.exe"
           if (Test-Path $p) { Rename-Item $p "chromedriver-old.exe" -Force }
 
       # ---- BUILD & TEST ----
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
       - name: Restore
         run: dotnet restore
 
@@ -102,6 +130,14 @@ jobs:
             TestResults/**/*.trx
             SeleniumAutomation.Tests/bin/**/TestResults/**/*.png
             SeleniumAutomation.Tests/bin/**/TestResults/**/*.html
+
+      - name: Version summary
+        if: always()
+        shell: bash
+        run: |
+          echo "### Versions" >> "$GITHUB_STEP_SUMMARY"
+          echo "* Chrome version: $CHROME_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          dotnet --info | sed -n '1,20p' >> "$GITHUB_STEP_SUMMARY"
 
       # ---- SUMMARY (TRX/HTML listázás) ----
       - name: Summarize results
