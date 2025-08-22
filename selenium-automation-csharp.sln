@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SeleniumAutomation", "SeleniumAutomation\SeleniumAutomation.csproj", "{BEDC172C-DADE-2155-ABA3-A8FA29BDA9A7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SeleniumAutomation.Tests", "SeleniumAutomation.Tests\SeleniumAutomation.Tests.csproj", "{2C50B22B-88C3-844F-08CD-8B29F8F73056}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BEDC172C-DADE-2155-ABA3-A8FA29BDA9A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BEDC172C-DADE-2155-ABA3-A8FA29BDA9A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BEDC172C-DADE-2155-ABA3-A8FA29BDA9A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BEDC172C-DADE-2155-ABA3-A8FA29BDA9A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2C50B22B-88C3-844F-08CD-8B29F8F73056}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2C50B22B-88C3-844F-08CD-8B29F8F73056}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2C50B22B-88C3-844F-08CD-8B29F8F73056}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2C50B22B-88C3-844F-08CD-8B29F8F73056}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {64BD90B9-B3A8-4A0E-BC02-040056A46BAA}
+	EndGlobalSection
+EndGlobal
