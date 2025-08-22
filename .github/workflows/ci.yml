@@ -37,17 +37,32 @@ jobs:
           curl -sSLo chromedriver-linux64.zip "$BASE/chromedriver-linux64.zip"
           unzip -q chrome-linux64.zip -d tools && rm chrome-linux64.zip
           unzip -q chromedriver-linux64.zip -d tools && rm chromedriver-linux64.zip
-
-          # Local shell vars for chmod
           CHROME_BIN="${GITHUB_WORKSPACE}/tools/chrome-linux64/chrome"
           DRIVER_DIR="${GITHUB_WORKSPACE}/tools/chromedriver-linux64"
-
           chmod +x "$CHROME_BIN" "$DRIVER_DIR/chromedriver"
-
-          # Export for next steps
           echo "CHROME_BINARY=$CHROME_BIN"   >> "$GITHUB_ENV"
           echo "CHROMEDRIVER_DIR=$DRIVER_DIR" >> "$GITHUB_ENV"
 
+      # ---- WINDOWS ----
+      - name: Install Chrome for Testing (Windows)
+        if: startsWith(matrix.os, 'windows')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $VER  = '139.0.7258.128'
+          $BASE = "https://storage.googleapis.com/chrome-for-testing-public/$VER/win64"
+          New-Item -ItemType Directory -Force tools | Out-Null
+          Invoke-WebRequest "$BASE/chrome-win64.zip" -OutFile chrome-win64.zip
+          Invoke-WebRequest "$BASE/chromedriver-win64.zip" -OutFile chromedriver-win64.zip
+          Expand-Archive chrome-win64.zip -DestinationPath tools -Force
+          Expand-Archive chromedriver-win64.zip -DestinationPath tools -Force
+          Remove-Item chrome-win64.zip, chromedriver-win64.zip -Force
+          "CHROME_BINARY=$((Resolve-Path .\tools\chrome-win64\chrome.exe).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CHROMEDRIVER_DIR=$((Resolve-Path .\tools\chromedriver-win64).Path)"   | Out-File -FilePath $env:GITHUB_ENV -Append
+          $p="C:\Program Files\Google\Chrome\Application\chromedriver.exe"
+          if (Test-Path $p) { Rename-Item $p "chromedriver-old.exe" -Force }
+
+      # ---- BUILD & TEST ----
       - name: Restore
         run: dotnet restore
 
@@ -62,38 +77,23 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/TestResults"
           xvfb-run --auto-servernum \
             dotnet test SeleniumAutomation.Tests \
-              -c Release \
-              --no-build -v n \
+              -c Release --no-build -v n \
               --logger "trx;LogFileName=test_results.trx" \
               --results-directory "$GITHUB_WORKSPACE/TestResults"
 
-      # ---- WINDOWS ----
-      - name: Install Chrome for Testing (Windows)
+      - name: Test (Windows)
         if: startsWith(matrix.os, 'windows')
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $VER  = '139.0.7258.128'
-          $BASE = "https://storage.googleapis.com/chrome-for-testing-public/$VER/win64"
+          New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE\TestResults" | Out-Null
+          dotnet test .\SeleniumAutomation.Tests `
+            -c Release --no-build -v n `
+            --logger "trx;LogFileName=test_results.trx" `
+            --results-directory "$env:GITHUB_WORKSPACE\TestResults"
 
-          New-Item -ItemType Directory -Force tools | Out-Null
-          Invoke-WebRequest "$BASE/chrome-win64.zip" -OutFile chrome-win64.zip
-          Invoke-WebRequest "$BASE/chromedriver-win64.zip" -OutFile chromedriver-win64.zip
-          Expand-Archive chrome-win64.zip -DestinationPath tools -Force
-          Expand-Archive chromedriver-win64.zip -DestinationPath tools -Force
-          Remove-Item chrome-win64.zip, chromedriver-win64.zip -Force
-
-          "CHROME_BINARY=$((Resolve-Path .\tools\chrome-win64\chrome.exe).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "CHROMEDRIVER_DIR=$((Resolve-Path .\tools\chromedriver-win64).Path)"   | Out-File -FilePath $env:GITHUB_ENV -Append
-
-          # Optional: neutralize stale system driver
-          $p="C:\Program Files\Google\Chrome\Application\chromedriver.exe"
-          if (Test-Path $p) { Rename-Item $p "chromedriver-old.exe" -Force }
-
-s 
       # ---- ARTIFACTS ----
       - name: Upload test results
-        if: always()  # Always upload even if tests fail            
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.os }}
