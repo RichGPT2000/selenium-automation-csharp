@@ -139,31 +139,30 @@ jobs:
           echo "* Chrome version: $CHROME_VERSION" >> "$GITHUB_STEP_SUMMARY"
           dotnet --info | sed -n '1,20p' >> "$GITHUB_STEP_SUMMARY"
 
-      # ---- SUMMARY (TRX/HTML listázás) ----
+      # ---- SUMMARY (cross-platform PowerShell) ----
       - name: Summarize results
         if: always()
-        shell: bash
+        shell: pwsh
         run: |
-          {
-            echo "## 🧪 Selenium Test Results"
-            echo
-            if compgen -G "TestResults/**/*.trx" > /dev/null; then
-              echo "### Test Log (.trx)"
-              for f in TestResults/**/*.trx; do
-                echo "- $(basename "$f")"
-              done
-              echo
-            else
-              echo "_No TRX file found._"
-            fi
-            if compgen -G "SeleniumAutomation.Tests/bin/**/TestResults/**/*.html" > /dev/null; then
-              echo "### HTML snapshots"
-              for f in SeleniumAutomation.Tests/bin/**/TestResults/**/*.html; do
-                echo "- $(basename "$f")"
-              done
-              echo
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          $summary = $env:GITHUB_STEP_SUMMARY
+          "## 🧪 Selenium Test Results" | Out-File -FilePath $summary -Append -Encoding utf8
+          "" | Out-File -FilePath $summary -Append -Encoding utf8
+          $trx = Get-ChildItem -Recurse -Filter *.trx -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match 'TestResults' }
+          if ($trx) {
+            "### Test Log (.trx)" | Out-File -FilePath $summary -Append -Encoding utf8
+            $trx | ForEach-Object { "- $($_.Name)" | Out-File -FilePath $summary -Append -Encoding utf8 }
+            "" | Out-File -FilePath $summary -Append -Encoding utf8
+          } else { "_No TRX file found._" | Out-File -FilePath $summary -Append -Encoding utf8 }
+          $html = Get-ChildItem -Recurse -Filter *.html -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match 'TestResults' }
+          if ($html) {
+            "### HTML snapshots" | Out-File -FilePath $summary -Append -Encoding utf8
+            $html | Select-Object -First 20 | ForEach-Object { "- $($_.Name)" | Out-File -FilePath $summary -Append -Encoding utf8 }
+            "" | Out-File -FilePath $summary -Append -Encoding utf8
+          }
+          $png = Get-ChildItem -Recurse -Filter *.png -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match 'TestResults' }
+          if ($png) {
+            "### Screenshot count: $($png.Count) (showing first 6 inline below if step present)" | Out-File -FilePath $summary -Append -Encoding utf8
+          }
 
       # ---- INLINE SCREENSHOTS (Linux) ----
       - name: Show screenshots in Job Summary (Linux)
