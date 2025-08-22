@@ -60,7 +60,11 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$GITHUB_WORKSPACE/TestResults"
-          xvfb-run --auto-servernum             dotnet test SeleniumAutomation.Tests               --no-build --logger "trx;LogFileName=test_results.trx"               -- ResultsDirectory="$GITHUB_WORKSPACE/TestResults"
+          xvfb-run --auto-servernum \
+            dotnet test SeleniumAutomation.Tests \
+              --no-build -v n \
+              --logger "trx;LogFileName=test_results.trx" \
+              --results-directory "$GITHUB_WORKSPACE/TestResults"
 
       # ---- WINDOWS ----
       - name: Install Chrome for Testing (Windows)
@@ -91,8 +95,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE\TestResults" | Out-Null
           dotnet test .\SeleniumAutomation.Tests `
-            --no-build --logger "trx;LogFileName=test_results.trx" `
-            -- ResultsDirectory "$env:GITHUB_WORKSPACE\TestResults"
+            --no-build -v n `
+            --logger "trx;LogFileName=test_results.trx" `
+            --results-directory "$env:GITHUB_WORKSPACE\TestResults"
 
       # ---- ARTIFACTS ----
       - name: Upload test results
