@@ -40,7 +40,7 @@ jobs:
           CHROME_BIN="${GITHUB_WORKSPACE}/tools/chrome-linux64/chrome"
           DRIVER_DIR="${GITHUB_WORKSPACE}/tools/chromedriver-linux64"
           chmod +x "$CHROME_BIN" "$DRIVER_DIR/chromedriver"
-          echo "CHROME_BINARY=$CHROME_BIN"     >> "$GITHUB_ENV"
+          echo "CHROME_BINARY=$CHROME_BIN"   >> "$GITHUB_ENV"
           echo "CHROMEDRIVER_DIR=$DRIVER_DIR" >> "$GITHUB_ENV"
 
       # ---- WINDOWS ----
@@ -59,7 +59,7 @@ jobs:
           Remove-Item chrome-win64.zip, chromedriver-win64.zip -Force
           "CHROME_BINARY=$((Resolve-Path .	ools\chrome-win64\chrome.exe).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append
           "CHROMEDRIVER_DIR=$((Resolve-Path .	ools\chromedriver-win64).Path)"   | Out-File -FilePath $env:GITHUB_ENV -Append
-          $p = "C:\Program Files\Google\Chrome\Application\chromedriver.exe"
+          $p="C:\Program Files\Google\Chrome\Application\chromedriver.exe"
           if (Test-Path $p) { Rename-Item $p "chromedriver-old.exe" -Force }
 
       # ---- BUILD & TEST ----
@@ -104,24 +104,26 @@ jobs:
         if: always()
         shell: bash
         run: |
-          echo "## 🧪 Selenium Test Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if compgen -G "TestResults/**/*.trx" > /dev/null; then
-            echo "### Test Log (.trx)" >> "$GITHUB_STEP_SUMMARY"
-            for f in TestResults/**/*.trx; do
-              echo "- $(basename "$f")" >> "$GITHUB_STEP_SUMMARY"
-            done
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "_No TRX file found._" >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if compgen -G "SeleniumAutomation.Tests/bin/**/TestResults/**/*.html" > /dev/null; then
-            echo "### HTML snapshots" >> "$GITHUB_STEP_SUMMARY"
-            for f in SeleniumAutomation.Tests/bin/**/TestResults/**/*.html; do
-              echo "- $(basename "$f")" >> "$GITHUB_STEP_SUMMARY"
-            done
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "## 🧪 Selenium Test Results"
+            echo
+            if compgen -G "TestResults/**/*.trx" > /dev/null; then
+              echo "### Test Log (.trx)"
+              for f in TestResults/**/*.trx; do
+                echo "- $(basename "$f")"
+              done
+              echo
+            else
+              echo "_No TRX file found._"
+            fi
+            if compgen -G "SeleniumAutomation.Tests/bin/**/TestResults/**/*.html" > /dev/null; then
+              echo "### HTML snapshots"
+              for f in SeleniumAutomation.Tests/bin/**/TestResults/**/*.html; do
+                echo "- $(basename "$f")"
+              done
+              echo
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # ---- INLINE SCREENSHOTS (Linux) ----
       - name: Show screenshots in Job Summary (Linux)
@@ -129,18 +131,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "## 📸 Screenshots" >> "$GITHUB_STEP_SUMMARY"
-          count=0
-          while IFS= read -r -d '' img; do
-            name="$(basename "$img")"
-            b64="$(base64 -w0 "$img" 2>/dev/null || base64 "$img")"
-            echo "<details><summary>$name</summary><img src="data:image/png;base64,$b64" alt="$name" style="max-width: 100%; height: auto;" /></details>" >> "$GITHUB_STEP_SUMMARY"
-            count=$((count+1))
-            [ $count -ge 6 ] && break
-          done < <(find SeleniumAutomation.Tests -type f -path "*/TestResults/*" -name "*.png" -print0 | sort -z)
-          if [ $count -eq 0 ]; then
-            echo "_No screenshots found._" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "## 📸 Screenshots"
+            count=0
+            while IFS= read -r -d '' img; do
+              name="$(basename "$img")"
+              # normalize to single-line base64
+              b64="$(base64 -w0 "$img" 2>/dev/null || base64 "$img" | tr -d '
+')"
+              printf '<details><summary>%s</summary><img alt="%s" src="data:image/png;base64,%s" style="max-width: 100%%; height: auto;" /></details>
+' "$name" "$name" "$b64"
+              count=$((count+1))
+              [ $count -ge 6 ] && break
+            done < <(find SeleniumAutomation.Tests -type f -path "*/TestResults/*" -name "*.png" -print0 | sort -z)
+            if [ $count -eq 0 ]; then
+              echo "_No screenshots found._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # ---- INLINE SCREENSHOTS (Windows) ----
       - name: Show screenshots in Job Summary (Windows)
