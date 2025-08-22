@@ -57,8 +57,8 @@ jobs:
           Expand-Archive chrome-win64.zip -DestinationPath tools -Force
           Expand-Archive chromedriver-win64.zip -DestinationPath tools -Force
           Remove-Item chrome-win64.zip, chromedriver-win64.zip -Force
-          "CHROME_BINARY=$((Resolve-Path .	ools\chrome-win64\chrome.exe).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append
-          "CHROMEDRIVER_DIR=$((Resolve-Path .	ools\chromedriver-win64).Path)"   | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CHROME_BINARY=$((Resolve-Path .\tools\chrome-win64\chrome.exe).Path)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CHROMEDRIVER_DIR=$((Resolve-Path .\tools\chromedriver-win64).Path)"   | Out-File -FilePath $env:GITHUB_ENV -Append
           $p="C:\Program Files\Google\Chrome\Application\chromedriver.exe"
           if (Test-Path $p) { Rename-Item $p "chromedriver-old.exe" -Force }
 
@@ -75,7 +75,11 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$GITHUB_WORKSPACE/TestResults"
-          xvfb-run --auto-servernum             dotnet test SeleniumAutomation.Tests               -c Release --no-build -v n               --logger "trx;LogFileName=test_results.trx"               --results-directory "$GITHUB_WORKSPACE/TestResults"
+          xvfb-run --auto-servernum \
+            dotnet test SeleniumAutomation.Tests \
+              -c Release --no-build -v n \
+              --logger "trx;LogFileName=test_results.trx" \
+              --results-directory "$GITHUB_WORKSPACE/TestResults"
 
       - name: Test (Windows)
         if: startsWith(matrix.os, 'windows')
@@ -137,10 +141,8 @@ jobs:
             while IFS= read -r -d '' img; do
               name="$(basename "$img")"
               # normalize to single-line base64
-              b64="$(base64 -w0 "$img" 2>/dev/null || base64 "$img" | tr -d '
-')"
-              printf '<details><summary>%s</summary><img alt="%s" src="data:image/png;base64,%s" style="max-width: 100%%; height: auto;" /></details>
-' "$name" "$name" "$b64"
+              b64="$(base64 -w0 "$img" 2>/dev/null || base64 "$img" | tr -d '\n')"
+              printf '<details><summary>%s</summary><img alt="%s" src="data:image/png;base64,%s" style="max-width: 100%%; height: auto;" /></details>\n' "$name" "$name" "$b64"
               count=$((count+1))
               [ $count -ge 6 ] && break
             done < <(find SeleniumAutomation.Tests -type f -path "*/TestResults/*" -name "*.png" -print0 | sort -z)
