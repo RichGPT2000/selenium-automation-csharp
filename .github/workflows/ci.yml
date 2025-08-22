@@ -62,6 +62,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/TestResults"
           xvfb-run --auto-servernum \
             dotnet test SeleniumAutomation.Tests \
+              -c Release \
               --no-build -v n \
               --logger "trx;LogFileName=test_results.trx" \
               --results-directory "$GITHUB_WORKSPACE/TestResults"
@@ -89,19 +90,10 @@ jobs:
           $p="C:\Program Files\Google\Chrome\Application\chromedriver.exe"
           if (Test-Path $p) { Rename-Item $p "chromedriver-old.exe" -Force }
 
-      - name: Test (Windows)
-        if: startsWith(matrix.os, 'windows')
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force "$env:GITHUB_WORKSPACE\TestResults" | Out-Null
-          dotnet test .\SeleniumAutomation.Tests `
-            --no-build -v n `
-            --logger "trx;LogFileName=test_results.trx" `
-            --results-directory "$env:GITHUB_WORKSPACE\TestResults"
-
+s 
       # ---- ARTIFACTS ----
       - name: Upload test results
-        if: always()
+        if: always()  # Always upload even if tests fail            
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.os }}
